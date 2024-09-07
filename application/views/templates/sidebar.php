@@ -6,7 +6,7 @@
         <div class="sidebar-brand-icon ">
             <img src="<?= base_url('assets'); ?>/img/data-encryption.png" width="30px">
         </div>
-        <div class="sidebar-brand-text mx-3">Aplikasi DES - Alfan</div>
+        <div class="sidebar-brand-text mx-3">DES School Share</div>
     </a>
 
     <!-- Divider -->
@@ -59,9 +59,16 @@
         </a>
     </li> -->
         <li class="nav-item">
-            <a class="nav-link" href="<?= base_url('enkripsi') ?>">
+            <a class="nav-link" href="<?= base_url('Explore') ?>">
                 <i class="fas fa-fw fa-lock"></i>
-                <span>Enkripsi</span>
+                <span>Explore</span>
+            </a>
+        </li>
+
+        <li class="nav-item">
+            <a class="nav-link" href="<?= base_url('Explore/myfile') ?>">
+                <i class="fas fa-fw fa-lock"></i>
+                <span>My File</span>
             </a>
         </li>
     <?php endif; ?>

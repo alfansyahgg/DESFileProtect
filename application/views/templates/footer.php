@@ -2,7 +2,7 @@
 <footer class="sticky-footer bg-white">
     <div class="container my-auto">
         <div class="copyright text-center my-auto">
-            <span>Copyright &copy; Senjani <?= date('Y') ?></span>
+            <span>Copyright &copy; <?= date('Y') ?></span>
         </div>
     </div>
 </footer>
@@ -38,9 +38,6 @@
     </div>
 </div>
 
-<!-- Bootstrap core JavaScript-->
-<script src="<?= base_url('assets'); ?>/vendor/jquery/jquery.min.js"></script>
-<script src="<?= base_url('assets'); ?>/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
 
 <!-- Core plugin JavaScript-->
 <script src="<?= base_url('assets'); ?>/vendor/jquery-easing/jquery.easing.min.js"></script>
@@ -60,6 +57,8 @@
 
 <!-- Page level custom scripts -->
 <script src="<?= base_url('assets'); ?>/js/demo/datatables-demo.js"></script>
+<!-- Sweet Alert -->
+<script type="text/javascript" src="<?php echo base_url('assets/sweet-alert/sweetalert2.all.min.js'); ?>"></script>
 
 </body>
 

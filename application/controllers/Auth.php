@@ -7,7 +7,6 @@ class Auth extends CI_Controller
     {
         parent::__construct();
         $this->load->library('form_validation');
-
     }
     public function index()
     {
@@ -40,6 +39,7 @@ class Auth extends CI_Controller
 
                 if (password_verify($password, $user['password'])) {
                     $data = [
+                        'id_user' => $user['id_user'],
                         'email' => $user['email'],
                         'role_id' => $user['role_id'],
                     ];

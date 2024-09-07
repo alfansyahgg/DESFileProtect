@@ -13,13 +13,22 @@
 
     <!-- Custom fonts for this template-->
     <link href="<?= base_url('assets'); ?>/vendor/fontawesome-free/css/all.min.css" rel="stylesheet" type="text/css">
-    <link href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i" rel="stylesheet">
+    <link
+        href="https://fonts.googleapis.com/css?family=Nunito:200,200i,300,300i,400,400i,600,600i,700,700i,800,800i,900,900i"
+        rel="stylesheet">
 
     <!-- Custom styles for this template-->
-    <link href="<?= base_url('assets'); ?>/css/sb-admin-2.css?version=<?php echo filemtime('./assets/css/sb-admin-2.css'); ?>" rel="stylesheet">
+    <link
+        href="<?= base_url('assets'); ?>/css/sb-admin-2.css?version=<?php echo filemtime('./assets/css/sb-admin-2.css'); ?>"
+        rel="stylesheet">
 
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="<?= base_url('assets'); ?>/favicon.png">
+    <!-- Bootstrap core JavaScript-->
+    <script src="<?= base_url('assets'); ?>/vendor/jquery/jquery.min.js"></script>
+    <script src="<?= base_url('assets'); ?>/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+    <!-- Sweet Alert -->
+    <link rel="stylesheet" type="text/css" href="<?php echo base_url('assets/sweet-alert/sweetalert2.min.css'); ?>">
 </head>
 
 <body id="page-top">

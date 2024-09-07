@@ -29,9 +29,22 @@ class Dekripsi extends CI_Controller
         $data['user'] = $this->db->get_where('users', ['email' =>
         $this->session->userdata('email')])->row_array();
 
-        $data['file'] = $this->Dekripsi_model->getAllDekripsi();
+        $file = $this->Dekripsi_model->getAllDekripsi();
+        $file_user =
+            $this->Dekripsi_model->getFileUser();
 
-        // echo "<pre>";print_r($data);exit();
+        $combined = array();
+        foreach ($file as $key => $fl) {
+            $fl['jumlah_user'] = 0;
+            foreach ($file_user as $fus) {
+                if ($fl['id_file'] == $fus['id_file']) {
+                    $fl['jumlah_user'] = $fus['jumlah_user'];
+                }
+            }
+            $combined[$key] = $fl;
+        }
+
+        $data['file'] = $combined;
 
         $this->load->view('templates/header', $data);
         $this->load->view('templates/sidebar', $data);
@@ -40,12 +53,36 @@ class Dekripsi extends CI_Controller
         $this->load->view('templates/footer');
     }
 
+    public function detail($id_file)
+    {
+        $data['title'] = 'Dekripsi';
+        $data['user'] = $this->db->get_where('users', ['email' =>
+        $this->session->userdata('email')])->row_array();
+
+        $file = $this->Dekripsi_model->getAllDekripsi();
+        $file_user =
+            $this->Dekripsi_model->getFileUser($id_file);
+
+        $data['users_file'] = $this->Dekripsi_model->getUserFileInfo($id_file);
+
+        // echo "<pre>";
+        // print_r($data);
+        // exit();
+
+        $this->load->view('templates/header', $data);
+        $this->load->view('templates/sidebar', $data);
+        $this->load->view('templates/topbar', $data);
+        $this->load->view('Dekripsi/detail', $data);
+        $this->load->view('templates/footer');
+    }
+
+
     public function download($id_file)
     {
         $file = $this->Dekripsi_model->getWhereFile($id_file);
 
         $name_file = $file['nama_file_enkrip'];
-        $data = file_get_contents('./assets/file_chipertext/' . $name_file);
+        $data = file_get_contents('./assets/file_encrypt/' . $name_file);
 
         header('Content-Description: File Transfer');
         header('Content-Type: application/octet-stream');
@@ -53,7 +90,7 @@ class Dekripsi extends CI_Controller
         header('Expires: 0');
         header('Cache-Control: must-revalidate');
         header('Pragma: public');
-        header('Content-Length: ' . filesize('./assets/file_chipertext/' . $name_file));
+        header('Content-Length: ' . filesize('./assets/file_encrypt/' . $name_file));
 
         echo "$data";
     }
@@ -70,116 +107,92 @@ class Dekripsi extends CI_Controller
 
         $data['data'] = $data_file;
 
-        $this->load->library('DES');
-        $path = "assets/file_chipertext/" . $data_file['nama_file_enkrip'];
-        $extension = explode(".", $data_file['nama_file_enkrip']);
-        $extension = end($extension);
-        if ($extension == "xls" || $extension == "xlsx") {
-            // Membaca file Excel
-            $spreadsheet = IOFactory::load($path);
+        $password = $this->input->post('password');
 
+        if (password_verify($password, $data_file['password'])) {
+            $path = "assets/file_encrypt/" . $data_file['nama_file_enkrip'];
+            $extension = explode(".", $data_file['nama_file_enkrip']);
+            $extension = end($extension);
+            if ($extension == "xls" || $extension == "xlsx") {
+                // Membaca file Excel
+                $spreadsheet = IOFactory::load($path);
 
-            $key = 'mysecretkey';
+                foreach ($spreadsheet->getWorksheetIterator() as $worksheet) {
+                    // Iterate through all cells
+                    foreach ($worksheet->getRowIterator() as $row) {
+                        foreach ($row->getCellIterator() as $cell) {
+                            // Get the value of the cell
+                            $value = $cell->getValue();
+                            // Encrypt the value using DES
+                            $decryptedValue  = openssl_decrypt($value, 'DES-ECB', $password, 0);
+                            if (false === $decryptedValue) {
+                                echo openssl_error_string();
+                                die;
+                            }
 
-            foreach ($spreadsheet->getWorksheetIterator() as $worksheet) {
-                // Iterate through all cells
-                foreach ($worksheet->getRowIterator() as $row) {
-                    foreach ($row->getCellIterator() as $cell) {
-                        // Get the value of the cell
-                        $value = $cell->getValue();
-
-                        // echo "<pre>";var_dump($value);
-                        // Encrypt the value using DES
-                        $decryptedValue  = openssl_decrypt($value, 'DES-ECB', $key, 0);
-                        if (false === $decryptedValue) {
-                            echo openssl_error_string();
-                            die;
+                            // Set the encrypted value back to the cell
+                            $cell->setValue($decryptedValue);
                         }
-
-                        // Set the encrypted value back to the cell
-                        $cell->setValue($decryptedValue);
                     }
                 }
+
+                $dataStatusDekrip = [
+                    'status_dekripsi' => 1,
+                ];
+
+                $this->Dekripsi_model->updateStatusDekrip($id_file, $dataStatusDekrip);
+
+
+                // Proses file excel
+                header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+                header('Content-Disposition: attachment; filename="' . $data_file['nama_file_enkrip'] . '"'); // Set nama file excel nya
+                header('Cache-Control: max-age=0');
+
+
+                // Menyimpan file hasil dekripsi ke dalam file baru
+                $outputFileName = "assets/file_decrypt/" . $data_file['nama_file_enkrip'];
+                $writer = new Xlsx($spreadsheet);
+                $writer->save($outputFileName);
+                $data = file_get_contents('./assets/file_decrypt/' . $data_file['nama_file_enkrip']);
+
+                echo "$data";
+                $this->session->set_flashdata('berhasil', 'berhasil');
+                redirect('Dekripsi');
+            } else if ($extension == "txt") {
+                $plaintext = "";
+                $ciphertext = "";
+                $this->load->library('DES');
+
+                $this->load->library('PdfEncryption');
+                $path = "assets/file_encrypt/" . $data_file['nama_file_enkrip'];
+
+                $inputFilePath =
+                    './assets/file_encrypt/' . $data_file['nama_file_enkrip'];
+                $outputFilePath = './assets/file_decrypt/' . $data_file['nama_file'];
+
+                $this->pdfencryption->decryptPdf($password, $inputFilePath, $outputFilePath);
+                $dataStatusDekrip = [
+                    'status_dekripsi' => 1,
+                ];
+
+                $this->Dekripsi_model->updateStatusDekrip($id_file, $dataStatusDekrip);
+                header('Content-Length: ' . filesize($outputFilePath));
+                header("Content-Type: application/pdf");
+                header('Content-Disposition: attachment; filename="' . $data_file['nama_file'] . '"'); // feel free to change the suggested filename
+                readfile($outputFilePath);
+                $data = file_get_contents($outputFilePath);
+
+                echo "$data";
+                $this->session->set_flashdata('berhasil', 'berhasil');
+                redirect('Dekripsi');
+            } else {
+                $this->session->set_flashdata('gagal', 'gagal');
+                redirect('Dekripsi');
             }
-
-
-
-
-            // echo "<pre>";
-            // var_dump($decryptedData);exit();
-
-
-
-            $dataStatusDekrip = [
-                'status_dekripsi' => 1,
-            ];
-
-            $this->Dekripsi_model->updateStatusDekrip($id_file, $dataStatusDekrip);
-
-
-            // Proses file excel
-            header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-            header('Content-Disposition: attachment; filename="' . $data_file['nama_file_enkrip'] . '"'); // Set nama file excel nya
-            header('Cache-Control: max-age=0');
-
-
-            // Menyimpan file hasil dekripsi ke dalam file baru
-            $outputFileName = "assets/file_decript/" . $data_file['nama_file_enkrip'];
-            $writer = new Xlsx($spreadsheet);
-            $writer->save($outputFileName);
-            $data = file_get_contents('./assets/file_decript/' . $data_file['nama_file_enkrip']);
-
-            echo "$data";
-        } else if ($extension == "pdf") {
-            $plaintext = "";
-            $ciphertext = "";
-            $this->load->library('DES');
-            $path = "assets/file_encript/" . $data_file['nama_file_enkrip'];
-            $bin_ciphertext = (string) file_get_contents($path);
-            $arr_ciphertext = str_split($bin_ciphertext, 64);
-
-
-            $desModule = new DES();
-            foreach ($arr_ciphertext as $i) {
-                $decrypt = $desModule->decrypt($i, $data_file['createdAt']);
-                $plaintext .= $desModule->read_bin($decrypt);
-                $ciphertext .= $desModule->read_bin($i);
-            }
-            $this->load->library('Pdfgenerator');
-            $dt['plaintext'] = $plaintext;
-
-            $new_plaintext = mb_convert_encoding($plaintext, 'UTF-8', 'ASCII');
-
-            $html = ob_get_contents();
-            ob_end_clean();
-
-            $dataStatusDekrip = [
-                'status_dekripsi' => 1,
-            ];
-            $this->Dekripsi_model->updateStatusDekrip($id_file, $dataStatusDekrip);
-
-            $pdfgenerator = new Pdfgenerator();
-            $pdfgenerator->generate($new_plaintext, $data_file['nama_file'], "A4", "landscape", true);
-            $pdfgenerator->loadHtml($html);
-            $pdfgenerator->setPaper('A4', 'landscape');
-            $pdfgenerator->render();
-            $pdfgenerator->stream($data_file['nama_file'], array('Attachment' => 0));
-            exit();
         } else {
-            redirect('Enkripsi');
+            $this->session->set_flashdata('gagal', 'gagal');
+            redirect('Dekripsi');
         }
-
-        // $url = base_url('./assets/file_decript/' . $data_file['nama_file']);
-        // $html = '<iframe src="' . $url . '" style="border:none; width: 100%; height: 100%"></iframe>';
-        // echo $html;
-
-        // $pdfgenerator = new Pdfgenerator();
-        // $pdfgenerator->generate($new_plaintext, $data_file['nama_file'], "A4", "landscape", true);
-        // $pdfgenerator->loadHtml($html);
-        // $pdfgenerator->setPaper('A4', 'landscape');
-        // $pdfgenerator->render();
-        // $pdfgenerator->stream($data_file['nama_file'], array('Attachment' => 0));
-        // exit();
     }
 
     public function hapus($id_file)

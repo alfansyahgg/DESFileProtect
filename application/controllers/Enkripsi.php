@@ -19,6 +19,7 @@ class Enkripsi extends CI_Controller
         if (!isset($this->session->email)) {
             redirect('auth');
         }
+        date_default_timezone_set('Asia/Jakarta');
     }
 
     public function index()
@@ -38,33 +39,36 @@ class Enkripsi extends CI_Controller
     public function import()
     {
         $this->form_validation->set_rules('password', 'Password', 'required');
+        $this->form_validation->set_rules('batas', 'Batas', 'required');
 
         if ($this->form_validation->run() == false) {
             redirect('enkripsi');
         } else {
             $user = $this->db->get_where('users', ['email' =>
             $this->session->userdata('email')])->row_array();
+
+            $batas = $this->input->post('batas');
+
             $keys = $this->input->post('password');
-            $bin_ciphertext = "";
-            $ciphertext = "";
 
-            $fileName = $_FILES['file']['name'];
-            $extension = explode(".", $fileName);
-            $extension = end($extension);
+            // var_dump($keys);
+            // exit();
 
-            // echo "<pre>";print_r($_FILES);exit();
             if (isset($_FILES['file'])) {
+                $fileName = $_FILES['file']['name'];
+                $extension = explode(".", $fileName);
+                $extension = end($extension);
                 if ($extension == "xls" || $extension == "xlsx") {
-                    $nama_file = str_replace("_", "-", $_FILES['file']['name']);
+                    $nama_file = str_replace(" ", "_", $_FILES['file']['name']);
 
                     // Inisialisasi
                     $random_number = rand(1000, 100000);
-                    $filename_pdf = $random_number . '-' . $_FILES['file']['name'];
+                    $filename_excel = $random_number . '-' . $nama_file;
                     $filename_enc = $random_number . '-' . $nama_file;
                     $format = "%Y-%m-%d";
 
-                    $config['upload_path'] = './assets/file_encript/';
-                    $config['file_name'] = $filename_pdf;
+                    $config['upload_path'] = './assets/file_raw/';
+                    $config['file_name'] = $filename_excel;
                     $config['allowed_types'] = 'xls|xlsx';
                     $config['max_size'] = 2048;
                     $config['max_width'] = 1024;
@@ -74,17 +78,10 @@ class Enkripsi extends CI_Controller
                     $this->load->helper('file');
                     $this->load->helper('date');
 
-                    // file_put_contents('./assets/file_chipertext/' . $filename_enc, $pdf_output);
-                    // file_put_contents('./assets/file_encript/' . $filename_enc, $pdf_encript);
-
                     // Pindah file pdf ke folder file decript
                     if ($this->upload->do_upload('file')) {
-                        // if (write_file(FCPATH . './assets/file_chipertext/' . $filename_enc, $ciphertext)) {
-                        // echo "Berhasil write chipertext file";
 
-                        // if (write_file(FCPATH . './assets/file_encript/' . $filename_enc, $bin_ciphertext)) {
-
-                        $inputFileName = './assets/file_encript/' . $filename_pdf;
+                        $inputFileName = './assets/file_raw/' . $filename_excel;
                         $spreadsheet = IOFactory::load($inputFileName);
 
                         $key = $keys; // kunci enkripsi
@@ -97,9 +94,6 @@ class Enkripsi extends CI_Controller
                                 foreach ($row->getCellIterator() as $cell) {
                                     // Get the value of the cell
                                     $value = $cell->getValue();
-
-
-                                    // echo "<pre>";print_r($value);exit();
                                     // Encrypt the value using DES
                                     $encryptedValue = openssl_encrypt($value, 'DES-ECB', $key, 0);
 
@@ -114,69 +108,44 @@ class Enkripsi extends CI_Controller
                         }
 
                         // Menyimpan file hasil enkripsi ke dalam file baru
-                        $outputFileName = './assets/file_chipertext/' . $filename_enc;
+                        $outputFileName = './assets/file_encrypt/' . $filename_enc;
                         $writer = IOFactory::createWriter($spreadsheet, 'Xlsx');
                         $writer->save($outputFileName);
 
                         $data = array(
                             'id_user' => $user['id_user'],
-                            'nama_file' => $filename_pdf,
+                            'nama_file' => $filename_excel,
                             'nama_file_enkrip' => $filename_enc,
                             'password' => password_hash($this->input->post('password'), PASSWORD_DEFAULT),
-                            'createdAt' => $keys,
+                            'createdAt' => strtotime('now'),
+                            'batas' => $batas
                         );
 
                         $this->Enkripsi_model->tambahDataEnkripsi($data);
-
+                        $this->session->set_flashdata('berhasil', 'berhasil');
                         redirect('Enkripsi');
                     } else {
                         $error = array('error' => $this->upload->display_errors());
 
                         echo $error['error'];
                     }
-
-                    // Write file txt ke folder encript
-
-                    // echo $plaintext;
-                    // echo $bin_ciphertext;
-                    // echo "<br>";
-                    // echo $ciphertext;
-                } else if ($_FILES['file']['type'] == "application/pdf") {
-                    $this->load->library('DES');
-                    $this->load->library('pdfgenerator');
-                    $this->load->library('PDF2Text');
-
-                    $pdf = new PdftoText($_FILES['file']['tmp_name']);
-                    $data = $pdf->Text;
-
-                    // encrypt
-                    $plaintext = trim($data);
-                    $desModule = new DES();
-
-                    $arr_plaintext = str_split($plaintext, 8);
-
-                    foreach ($arr_plaintext as $i) {
-                        $encrypt = $desModule->encrypt($i, $keys);
-                        $bin_ciphertext .= $encrypt;
-                        $ciphertext .= $desModule->read_bin($encrypt);
-                    }
-                    // echo "<pre>";
-                    // print_r($arr_plaintext);
-                    // exit();
-
-                    // write file txt
-                    $nama_file = str_replace(".pdf", ".txt", $_FILES['file']['name']);
-                    // $nama_file = $_FILES['file']['name'] . ".txt";
-                    // force_download($nama_file, $bin_ciphertext);
+                } else if ($extension == "pdf") {
+                    $this->load->library('PdfEncryption');
 
                     // Inisialisasi
                     $random_number = rand(1000, 100000);
-                    $filename_pdf = $random_number . '-' . $_FILES['file']['name'];
-                    $filename_enc = $random_number . '-' . $nama_file;
+                    $filename_enc = str_replace(" ", "_", $_FILES['file']['name']);
+                    $filename_enc = $random_number . '-' . $filename_enc;
+
+                    $filename_txt = str_replace(".pdf", ".txt", $_FILES['file']['name']);
+                    $filename_txt =
+                        str_replace(" ", "_", $filename_txt);
+                    $filename_txt = $random_number . '-' . $filename_txt;
+
                     $format = "%Y-%m-%d";
 
-                    $config['upload_path'] = './assets/file_decript/';
-                    $config['file_name'] = $filename_pdf;
+                    $config['upload_path'] = './assets/file_raw/';
+                    $config['file_name'] = $filename_enc;
                     $config['allowed_types'] = 'pdf';
                     $config['max_size'] = 2048;
                     $config['max_width'] = 1024;
@@ -186,24 +155,26 @@ class Enkripsi extends CI_Controller
                     $this->load->helper('file');
                     $this->load->helper('date');
 
+                    $outputFilePath = './assets/file_encrypt/' . $filename_txt;
+                    $inputFilePath =
+                        './assets/file_raw/' . $filename_enc;
                     // Pindah file pdf ke folder file decript
                     if ($this->upload->do_upload('file')) {
-                        if (write_file(FCPATH . './assets/file_chipertext/' . $filename_enc, $ciphertext)) {
-                            // echo "Berhasil write chipertext file";
 
-                            if (write_file(FCPATH . './assets/file_encript/' . $filename_enc, $bin_ciphertext)) {
-                                $data = array(
-                                    'id_user' => $user['id_user'],
-                                    'nama_file' => $filename_pdf,
-                                    'nama_file_enkrip' => $filename_enc,
-                                    'password' => password_hash($this->input->post('password'), PASSWORD_DEFAULT),
-                                    'createdAt' => $keys,
-                                );
+                        $this->pdfencryption->encryptPdf($keys, $inputFilePath, $outputFilePath);
 
-                                $this->Enkripsi_model->tambahDataEnkripsi($data);
-                                redirect('Dekripsi');
-                            }
-                        }
+                        $data = array(
+                            'id_user' => $user['id_user'],
+                            'nama_file' => $filename_enc,
+                            'nama_file_enkrip' => $filename_txt,
+                            'password' => password_hash($this->input->post('password'), PASSWORD_DEFAULT),
+                            'createdAt' => strtotime('now'),
+                            'batas' => $batas
+                        );
+
+                        $this->Enkripsi_model->tambahDataEnkripsi($data);
+                        $this->session->set_flashdata('berhasil', 'berhasil');
+                        redirect('Enkripsi');
                     } else {
                         $error = array('error' => $this->upload->display_errors());
 
@@ -211,6 +182,7 @@ class Enkripsi extends CI_Controller
                     }
                 }
             } else {
+                $this->session->set_flashdata('gagal', 'gagal');
                 redirect('Enkripsi');
             }
         }
